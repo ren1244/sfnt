@@ -1,0 +1,8 @@
+{
+    "name": "ren1244/sfnt",
+    "autoload": {
+        "psr-4": {
+            "ren1244\\sfnt\\": "src"
+        }
+    }
+}
