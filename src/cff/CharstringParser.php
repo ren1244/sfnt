@@ -16,28 +16,13 @@ class CharstringParser
         19 => true, 20 => true, 23 => true,
     ];
     const MASK_OPS = [
-        18 => true, 19 => true,
+        19 => true, 20 => true,
     ];
-
-    public function __construct(INDEX $gSubrs, INDEX $subrs = null)
-    {
-        $this->gSubrs = $gSubrs;
-        $gSubrBias = $gSubrs->getSubrBias();
-        if ($subrs !== null) {
-            $this->subrs = $subrs;
-            $n = count($subrs);
-            $this->subrBias = $n < 1240 ? 107 : ($n < 33900 ? 1131 : 32768);
-        } else {
-            $this->subrs = [];
-            $n = 0;
-            $this->subrBias = 107;
-        }
-    }
 
     public static function parse(
         string $charstring,
-        INDEX $gSubrs,
-        INDEX $subrs,
+        ?INDEX $gSubrs,
+        ?INDEX $subrs,
         CharstringParserEventInterface $eventHandler
     ) {
         $startFlag = false;
@@ -45,6 +30,12 @@ class CharstringParser
         $stack = [];
         $usedGSubrs = [];
         $usedSubrs = [];
+        if ($gSubrs === null) {
+            $gSubrs = new INDEX('string');
+        }
+        if ($subrs === null) {
+            $subrs = new INDEX('string');
+        }
 
         self::_parse(
             $charstring,
@@ -143,7 +134,9 @@ class CharstringParser
                         $eventHandler->onSubr(false, true, $subrIdx);
                     } else {
                         $eventHandler->onOperator($x, substr($charstring, $i, 1), $stack);
-                        $stack = [];
+                        if ($x !== 11) {
+                            $stack = [];
+                        }
                     }
                 }
             } else {
