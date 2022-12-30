@@ -69,15 +69,18 @@ class T_cmap implements TableInterface
         return $result;
     }
 
-    public function getCodeToGid(int $platformID, int $encodingID, array &$result)
+    public function getCodeToGid(int $platformID, int $encodingID, array &$result = null)
     {
-        foreach($this->encodingRecords as $rec) {
-            if($rec['platformID'] === $platformID && $rec['encodingID'] === $encodingID) {
+        foreach ($this->encodingRecords as $rec) {
+            if ($rec['platformID'] === $platformID && $rec['encodingID'] === $encodingID) {
+                if ($result === null) {
+                    $result = [];
+                }
                 $reader = $this->reader;
                 $reader->seek($rec['subtableOffset']);
                 $format = $reader->readUint(16);
-                $classname = __NAMESPACE__.'\\cmap\\Fmt'.$format;
-                if(!class_exists($classname)) {
+                $classname = __NAMESPACE__ . '\\cmap\\Fmt' . $format;
+                if (!class_exists($classname)) {
                     throw new Exception("Class $classname not exists.");
                 }
                 return $classname::getCodeToGid($reader->createSubReader(
@@ -88,8 +91,9 @@ class T_cmap implements TableInterface
         return null;
     }
 
-    public function __toString() {
-        $arr = array_map(function($r){
+    public function __toString()
+    {
+        $arr = array_map(function ($r) {
             $inf = self::INFO[$r['platformID']];
             $plat = $inf['platform'];
             $enc = $inf['encoding'][$r['encodingID']] ?? '無資料';

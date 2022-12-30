@@ -22,6 +22,9 @@ class Fmt4 implements FormatInterface
             $e = $endCode[$i];
             $d = $idDelta[$i];
             $o = $idRangeOffsets[$i];
+            if($s === 0xffff && $e === 0xffff) {
+                continue;
+            }
             if ($o === 0) {
                 for ($cid = $s; $cid <= $e; ++$cid) {
                     $gid = $cid + $d;
