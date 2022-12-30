@@ -12,6 +12,7 @@ class sfnt
     private $entrySelector;
     private $rangeShift;
     private $tableRecords;
+    private $tableCache = [];
 
     public function __construct(TypeReader $reader)
     {
@@ -57,10 +58,13 @@ class sfnt
         if(!class_exists($classname)) {
             throw new Exception("Class $classname not exists.");
         }
-        return new $classname($this->reader->createSubReader(
-            $this->tableRecords[$tag]['offset'],
-            $this->tableRecords[$tag]['length']
-        ));
+        if(!isset($this->tableCache[$tag])) {
+            $this->tableCache[$tag] = new $classname($this->reader->createSubReader(
+                $this->tableRecords[$tag]['offset'],
+                $this->tableRecords[$tag]['length']
+            ));
+        }
+        return $this->tableCache[$tag];
     }
 
     public function __toString() {

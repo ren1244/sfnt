@@ -164,7 +164,7 @@ class INDEX implements \ArrayAccess, \Countable
             return pack('nCN*', $count, 4, ...$arr) . implode('', $tmp);
         }
     }
-    
+
     /**
      * 計算包裝成 INDEX 的大小
      *
@@ -197,7 +197,7 @@ class INDEX implements \ArrayAccess, \Countable
      * 以下為 \ArrayAccess, \Countable 的實作
      */
 
-    public function offsetExists($offset)
+    public function offsetExists($offset): bool
     {
         if (is_int($offset) && 0 <= $offset && $offset < $this->count) {
             return true;
@@ -225,17 +225,17 @@ class INDEX implements \ArrayAccess, \Countable
         return null;
     }
 
-    public function offsetSet($offset, $value)
+    public function offsetSet($offset, $value): void
     {
         throw new Exception('read only');
     }
 
-    public function offsetUnset($offset)
+    public function offsetUnset($offset): void
     {
         throw new Exception('read only');
     }
 
-    public function count()
+    public function count(): int
     {
         return $this->count;
     }

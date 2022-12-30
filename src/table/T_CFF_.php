@@ -3,6 +3,7 @@
 namespace ren1244\sfnt\table;
 
 use Exception;
+use ren1244\sfnt\cache\IndexArray;
 use ren1244\sfnt\cff\Charset;
 use ren1244\sfnt\cff\CharstringParser;
 use ren1244\sfnt\cff\CharstringRecoder;
@@ -20,6 +21,9 @@ class T_CFF_ implements TableInterface
     /** @var array 使用到的 GID */
     private $usedGID = [0 => true];
 
+    /** @var IndexArray charstring 與 subrs 相依關係的快取 */
+    private $cacheData = null;
+
     /** @var INDEX 字型名稱集合 */
     public $nameINDEX;
 
@@ -34,8 +38,6 @@ class T_CFF_ implements TableInterface
 
     /** @var INDEX gSubrs */
     public $gSubrINDEX;
-
-    public $subrs = [];
 
     public function __construct(TypeReader $reader)
     {
@@ -88,11 +90,35 @@ class T_CFF_ implements TableInterface
         $charstrings = $topDict->getCharstringINDEX();
 
         // 解析並記錄使用到哪些 gSubrs 與 subrs
-        $recoder = new CharstringRecoder();
-        foreach ($this->usedGID as $GID => $x) {
-            $priv = $this->topDict->getPrivate($GID);
-            $recoder->privateDict = $priv;
-            CharstringParser::parse($charstrings[$GID], $gSubrs, $priv->getSubrs(), $recoder);
+        if ($this->cacheData !== null) { // 使用快取資料（某次測試大約快20倍）
+            $usedGsubrs = [];
+            $fdArr = $topDict->getFDArray();
+            foreach ($this->usedGID as $GID => $x) {
+                if (($dependancyInfo = $this->cacheData[$GID]) !== null) {
+                    if (isset($dependancyInfo['g'])) {
+                        foreach ($dependancyInfo['g'] as $id) {
+                            $usedGsubrs[$id] = true;
+                        }
+                    }
+                    if (isset($dependancyInfo['i'])) {
+                        $priv = $fdArr[$dependancyInfo['i']]->getPrivate();
+                        foreach ($dependancyInfo['p'] as $id) {
+                            $priv->setUsed($id);
+                        }
+                    }
+                }
+            }
+        } else { // 不使用快取，直接計算
+            $recoder = new CharstringRecoder();
+            foreach ($this->usedGID as $GID => $x) {
+                $priv = $this->topDict->getPrivate($GID);
+                $recoder->usedSubrs = [];
+                CharstringParser::parse($charstrings[$GID], $gSubrs, $priv->getSubrs(), $recoder);
+                foreach ($recoder->usedSubrs as $subrId => $x) {
+                    $priv->setUsed($subrId);
+                }
+            }
+            $usedGsubrs = $recoder->usedGsubrs;
         }
 
         /**
@@ -115,7 +141,7 @@ class T_CFF_ implements TableInterface
         $result[] = $this->stringINDEX->copy();
 
         // Global Subr INDEX
-        $result[] = $this->getSubsetGSubrINDEX($recoder->usedGsubrs);
+        $result[] = $this->getSubsetGSubrINDEX($usedGsubrs);
 
         // 依據 Font Dict 結構建立其他內容
         $newINDEX = new INDEX('string');
@@ -123,6 +149,63 @@ class T_CFF_ implements TableInterface
         $result[1] = $newINDEX->subset();
 
         return implode($result);
+    }
+
+    /**
+     * 設定 charstring 相依性快取資訊: [info|null, ...], index 為 gid
+     * 
+     * info = [
+     *     'g'=>[gsubrId...]|null, // gSubr 無相依時無此項目
+     *     'i' => FD Index | null // subr 無相依時無此項目，同時也無 p 項目
+     *     'p'=>[subrId...] | null
+     * ]
+     *
+     * @param  mixed $cacheData
+     * @return void
+     */
+    public function setCharstringDependancyCache(string $cacheData)
+    {
+        $this->cacheData = new IndexArray('json', $cacheData);
+    }
+
+    /**
+     * 產生 charstring 相依性快取
+     *
+     * @return array
+     */
+    public function getCharstringDependancyCache()
+    {
+        $recoder = new CharstringRecoder();
+        $charstrings = $this->topDict->getCharstringINDEX();
+        $fdArr = $this->topDict->getFDArray();
+        $fdSel = $this->topDict->getFDSelect();
+        $nGlyph = count($charstrings);
+        $gSubrs = $this->gSubrINDEX;
+        $result = new IndexArray('json');
+        for ($gid = 0; $gid < $nGlyph; ++$gid) {
+            $subrs = null;
+            if (
+                ($fdIdx = $fdSel->getFDIndex($gid)) !== null &&
+                ($priv = $fdArr[$fdIdx]->getPrivate()) !== null
+            ) {
+                $subrs = $priv->getSubrs();
+            }
+            $recoder->usedGsubrs = [];
+            $recoder->usedSubrs = [];
+            CharstringParser::parse($charstrings[$gid], $gSubrs, $subrs, $recoder);
+            $tmp = [];
+            if (count($recoder->usedGsubrs)) {
+                $tmp['g'] = array_keys($recoder->usedGsubrs);
+            }
+            if (count($recoder->usedSubrs)) {
+                $tmp['i'] = $fdIdx;
+                $tmp['p'] = array_keys($recoder->usedSubrs);
+            }
+            if (count($tmp) > 0) {
+                $result[$gid] = $tmp;
+            }
+        }
+        return $result->pack();
     }
 
     private function getSubsetGSubrINDEX(array $usedGSubrs)

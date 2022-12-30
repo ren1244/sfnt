@@ -5,6 +5,7 @@ namespace ren1244\sfnt\cff;
 class CharstringRecoder implements CharstringParserEventInterface
 {
     public $usedGsubrs = [];
+    public $usedSubrs = [];
     public $privateDict = null;
 
     public function onOperator(int $x, string $s, array $stack)
@@ -21,9 +22,7 @@ class CharstringRecoder implements CharstringParserEventInterface
     {
         if($openFlag) {
             if($privateFlag) {
-                if($this->privateDict) {
-                    $this->privateDict->setUsed($idx);
-                }
+                $this->usedSubrs[$idx] = true;
             } else {
                 $this->usedGsubrs[$idx] = true;
             }
