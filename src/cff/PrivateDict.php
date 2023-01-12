@@ -74,7 +74,7 @@ class PrivateDict implements \ArrayAccess
     {
         return $this->usedSubrs;
     }
-    
+
     /**
      * 依據 usedSubrs 產生 Private Dict + Subrs
      *
@@ -88,14 +88,11 @@ class PrivateDict implements \ArrayAccess
         if (($oldSubrs = $this->getSubrs()) !== null) {
             $newSubrs = new INDEX('string');
             $n = count($oldSubrs);
-            $startIdx = 0;
             for ($i = 0; $i < $n; ++$i) {
                 if (isset($this->usedSubrs[$i])) {
-                    for($startIdx; $startIdx<$i; ++$startIdx) {
-                        $newSubrs->append("\x0b"); //直接 return
-                    }
                     $newSubrs->append($oldSubrs[$i]);
-                    ++$startIdx;
+                } else {
+                    $newSubrs->append("\x0b");
                 }
             }
             $newSubrs = $newSubrs->subset();
@@ -123,7 +120,7 @@ class PrivateDict implements \ArrayAccess
             $result[] = $this->reader->slice($start, $end);
             $len += $end - $start;
         }
-        if($idx!==null) {
+        if ($idx !== null) {
             $result[$idx] = pack('CNC', 29, $len, 0x13); // 寫入 subrs 位置
         }
         $result[] = $newSubrs;
