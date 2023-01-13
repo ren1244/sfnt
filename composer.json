@@ -1,5 +1,7 @@
 {
     "name": "ren1244/sfnt",
+    "description": "Font library for ren1244/pdfwriter",
+    "license": "MIT",
     "autoload": {
         "psr-4": {
             "ren1244\\sfnt\\": "src"
