@@ -1,4 +1,5 @@
 <?php
+
 namespace ren1244\sfnt;
 
 use Exception;
@@ -6,13 +7,14 @@ use Exception;
 class sfnt
 {
     private $reader;
-    private $sfntVersion;
     private $numTables;
     private $searchRange;
     private $entrySelector;
     private $rangeShift;
     private $tableRecords;
     private $tableCache = [];
+
+    public $sfntVersion;
 
     public function __construct(TypeReader $reader)
     {
@@ -25,11 +27,12 @@ class sfnt
         $this->tableRecords = $this->readTableRecords();
     }
 
-    public function readTableRecords() {
+    public function readTableRecords()
+    {
         $reader = $this->reader;
         $n = $this->numTables;
         $result = [];
-        for($i=0;$i<$n;++$i) {
+        for ($i = 0; $i < $n; ++$i) {
             $tag = $reader->readTag();
             $checksum = $reader->readUint(32);
             $offset = $reader->readOffset(32);
@@ -43,22 +46,23 @@ class sfnt
         return $result;
     }
 
-        
+
     /**
-     * table
+     * get table object
      *
      * @param  mixed $tag
      * @return mixed
      */
-    public function table(string $tag) {
-        if(!isset($this->tableRecords[$tag])) {
+    public function table(string $tag)
+    {
+        if (!isset($this->tableRecords[$tag])) {
             throw new Exception("Table $tag not exists in this font.");
         }
-        $classname = __NAMESPACE__.'\\table\\T_'.str_replace([' ', '/'], '_', $tag);
-        if(!class_exists($classname)) {
+        $classname = __NAMESPACE__ . '\\table\\T_' . str_replace([' ', '/'], '_', $tag);
+        if (!class_exists($classname)) {
             throw new Exception("Class $classname not exists.");
         }
-        if(!isset($this->tableCache[$tag])) {
+        if (!isset($this->tableCache[$tag])) {
             $this->tableCache[$tag] = new $classname($this->reader->createSubReader(
                 $this->tableRecords[$tag]['offset'],
                 $this->tableRecords[$tag]['length']
@@ -66,13 +70,79 @@ class sfnt
         }
         return $this->tableCache[$tag];
     }
+    
+    /**
+     * subset TrueType Font
+     *
+     * @param  array $usedGID 使用到的 GID，格式為： [GID => 1, ...]，其順序與新的 GID 順序相符
+     * @return string
+     */
+    public function subset(array $usedGID)
+    {
+        if (isset($usedGID[0])) {
+            unset($usedGID[0]);
+        }
+        $origNumberOfHMetrics = $this->table('hhea')->numberOfHMetrics;
+        $origNumGlyphs = $this->table('maxp')->numGlyphs;
+        $origIndexToLocFormat = $this->table('head')->indexToLocFormat;
+        $loca = $this->table('loca');
+        $loca->setVersion($origIndexToLocFormat);
+        $subsetedGlyf = $this->table('glyf')->subset($usedGID, $loca);
+        $nGlyphs = count($usedGID) + 1;
+        // PDF 文件中指定輸出以下 table
+        $newTables = [];
+        // head: 檔頭
+        $newTables['head'] = $this->table('head')->subset();
+        // hhea: 水平資訊檔頭
+        $newTables['hhea'] = $this->table('hhea')->subset($nGlyphs);
+        // hmtx: 水平資訊
+        $newTables['hmtx'] = $this->table('hmtx')->subset($usedGID, $origNumberOfHMetrics, $origNumGlyphs);
+        // loca: glyf 資料位置
+        $newTables['loca'] = $loca->subset();
+        // glyf: 每個字的向量圖描述
+        $newTables['glyf'] = $subsetedGlyf;
+        // maxp: 最大數值資料
+        $newTables['maxp'] = $this->table('maxp')->subset($nGlyphs);
+        // cvt: （可複製）
+        $this->copyTableIfExists('cvt ', $newTables);
+        // prep: （可複製）
+        $this->copyTableIfExists('prep', $newTables);
+        // fpgm: （可複製）
+        $this->copyTableIfExists('fpgm', $newTables);
+        // 將 table 打包成 TTF
+        $numTables = count($newTables);
+        $logTbCount = floor(log($numTables, 2));
+        $powOf2 = round(pow(2, $logTbCount));
+        $header = [pack('Nn4', 0x00010000, $numTables, $powOf2 * 16, $logTbCount, ($numTables - $powOf2) * 16)];
+        $offset = 12 + $numTables * 16;
+        foreach ($newTables as $tag => &$content) {
+            $len = strlen($content);
+            $header[] = $tag . pack('N3', 0, $offset, $len);
+            if ($len & 3) {
+                $content .= str_repeat(chr(0), 4 - ($len & 3));
+                $len += 4 - ($len & 3);
+            }
+            $offset += $len;
+        }
+        return implode('', $header).implode('', $newTables);
+    }
 
-    public function __toString() {
+    private function copyTableIfExists(string $tag, array &$result)
+    {
+        if (isset($this->tableRecords[$tag])) {
+            $offset = $this->tableRecords[$tag]['offset'];
+            $length = $this->tableRecords[$tag]['length'];
+            $result[$tag] = $this->reader->slice($offset, $offset + $length);
+        }
+    }
+
+    public function __toString()
+    {
         $result = [];
-        foreach($this->tableRecords as $tag => $info) {
+        foreach ($this->tableRecords as $tag => $info) {
             $offset = $info['offset'];
             $length = $info['length'];
-            $result[] = "$tag / $offset/ $length";
+            $result[] = "$tag / $offset / $length";
         }
         return implode("\n", $result);
     }
