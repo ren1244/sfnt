@@ -4,7 +4,7 @@ namespace ren1244\sfnt;
 
 use Exception;
 
-class sfnt
+class Sfnt
 {
     private $reader;
     private $numTables;
