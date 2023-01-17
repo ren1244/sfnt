@@ -5,7 +5,7 @@ namespace ren1244\sfnt\table;
 use Exception;
 use ren1244\sfnt\TypeReader;
 
-class T_maxp implements TableInterface
+class T_maxp
 {
     public $numGlyphs;
 

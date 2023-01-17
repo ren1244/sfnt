@@ -13,7 +13,7 @@ use ren1244\sfnt\cff\PrivateDict;
 use ren1244\sfnt\TypeReader;
 use ren1244\sfnt\cff\INDEX;
 
-class T_CFF_ implements TableInterface
+class T_CFF_
 {
     /** @var TypeReader 讀取器 */
     private $reader;

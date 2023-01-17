@@ -4,7 +4,7 @@ namespace ren1244\sfnt\table;
 
 use ren1244\sfnt\TypeReader;
 
-class T_name implements TableInterface
+class T_name
 {
     private $nameRecord = [];
 

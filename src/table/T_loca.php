@@ -5,28 +5,32 @@ namespace ren1244\sfnt\table;
 use Exception;
 use ren1244\sfnt\TypeReader;
 
-class T_loca implements TableInterface
+class T_loca
 {
     private $reader;
     private $version;
     private $positionArray;
     private $totalLength;
 
-    public function __construct(?TypeReader $reader = null)
+    public function __construct(?TypeReader $reader = null, ?T_head $head = null)
     {
         $this->reader = $reader;
+        if($head !== null) {
+            $this->version = $head->indexToLocFormat;
+        }
     }
     
     /**
      * 設定 version
      * version 應由 head table 的 indexToLocFormat 取得
      *
+     * @deprecated 從 v1.1.0 開始，version 會自動載入，不用再手動設定
      * @param  int $version
      * @return void
      */
     public function setVersion(int $version)
     {
-        $this->version = $version;
+        // $this->version = $version;
     }
     
     /**

@@ -63,14 +63,26 @@ class Sfnt
             throw new Exception("Class $classname not exists.");
         }
         if (!isset($this->tableCache[$tag])) {
-            $this->tableCache[$tag] = new $classname($this->reader->createSubReader(
-                $this->tableRecords[$tag]['offset'],
-                $this->tableRecords[$tag]['length']
-            ));
+            $ref = new \ReflectionClass($classname);
+            $refParams = $ref->getConstructor()->getParameters();
+            $count = count($refParams);
+            $params = [];
+            for ($i = 0; $i < $count; ++$i) {
+                $type = $refParams[$i]->getType()->getName();
+                if ($type === 'ren1244\sfnt\TypeReader') {
+                    $params[] = $this->reader->createSubReader(
+                        $this->tableRecords[$tag]['offset'],
+                        $this->tableRecords[$tag]['length']
+                    );
+                } else {
+                    $params[$i] = $this->table(substr($type, strrpos($type, '\\T_') + 3));
+                }
+            }
+            $this->tableCache[$tag] = $ref->newInstanceArgs($params);
         }
         return $this->tableCache[$tag];
     }
-    
+
     /**
      * subset TrueType Font
      *
@@ -82,13 +94,13 @@ class Sfnt
         if (isset($usedGID[0])) {
             unset($usedGID[0]);
         }
-        $origNumberOfHMetrics = $this->table('hhea')->numberOfHMetrics;
-        $origNumGlyphs = $this->table('maxp')->numGlyphs;
-        $origIndexToLocFormat = $this->table('head')->indexToLocFormat;
-        $loca = $this->table('loca');
-        $loca->setVersion($origIndexToLocFormat);
-        $subsetedGlyf = $this->table('glyf')->subset($usedGID, $loca);
+
+        // glyf 的 subset 必需在 loca 前呼叫，因為它會為 loca subset 做準備
+        $subsetedGlyf = $this->table('glyf')->subset($usedGID);
+
+        // 包含 GID = 0，所以要 + 1
         $nGlyphs = count($usedGID) + 1;
+
         // PDF 文件中指定輸出以下 table
         $newTables = [];
         // head: 檔頭
@@ -96,9 +108,9 @@ class Sfnt
         // hhea: 水平資訊檔頭
         $newTables['hhea'] = $this->table('hhea')->subset($nGlyphs);
         // hmtx: 水平資訊
-        $newTables['hmtx'] = $this->table('hmtx')->subset($usedGID, $origNumberOfHMetrics, $origNumGlyphs);
+        $newTables['hmtx'] = $this->table('hmtx')->subset($usedGID);
         // loca: glyf 資料位置
-        $newTables['loca'] = $loca->subset();
+        $newTables['loca'] = $this->table('loca')->subset();
         // glyf: 每個字的向量圖描述
         $newTables['glyf'] = $subsetedGlyf;
         // maxp: 最大數值資料
@@ -124,7 +136,7 @@ class Sfnt
             }
             $offset += $len;
         }
-        return implode('', $header).implode('', $newTables);
+        return implode('', $header) . implode('', $newTables);
     }
 
     private function copyTableIfExists(string $tag, array &$result)

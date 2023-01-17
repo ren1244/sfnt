@@ -5,7 +5,7 @@ namespace ren1244\sfnt\table;
 use Exception;
 use ren1244\sfnt\TypeReader;
 
-class T_cmap implements TableInterface
+class T_cmap
 {
     const INFO = [
         [
@@ -49,7 +49,7 @@ class T_cmap implements TableInterface
     public function __construct(TypeReader $reader)
     {
         $this->reader = $reader;
-        $this->version = $reader->readUint(16);
+        $reader->ignore(2); // ignore version
         $this->numTables = $reader->readUint(16);
         $this->encodingRecords = $this->readEncodingRecords();
     }

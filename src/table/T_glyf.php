@@ -5,13 +5,15 @@ namespace ren1244\sfnt\table;
 use Exception;
 use ren1244\sfnt\TypeReader;
 
-class T_glyf implements TableInterface
+class T_glyf
 {
     private $reader;
+    private $loca;
 
-    public function __construct(TypeReader $reader)
+    public function __construct(TypeReader $reader, T_loca $loca)
     {
         $this->reader = $reader;
+        $this->loca = $loca;
     }
     
     /**
@@ -22,9 +24,11 @@ class T_glyf implements TableInterface
      * @param  array $usedGID 使用到的 GID（參考 Sfnt 說明）
      * @param  mixed $loca
      * @return string
+     * @since 1.1.0 loca 不需指定，會自動取得
      */
-    public function subset(array &$usedGID, T_loca $loca)
+    public function subset(array &$usedGID, ?T_loca $loca = null)
     {
+        $loca = $this->loca;
         $reader = $this->reader;
         $loca->prepareSubset();
         $loca->push(0); // for GID = 0

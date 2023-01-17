@@ -5,18 +5,32 @@ namespace ren1244\sfnt\table;
 use Exception;
 use ren1244\sfnt\TypeReader;
 
-class T_hmtx implements TableInterface
+class T_hmtx
 {
     private $reader;
+    private $numberOfHMetrics;
+    private $numGlyphs;
 
-    public function __construct(TypeReader $reader)
+    public function __construct(TypeReader $reader, T_hhea $hhea, T_maxp $maxp)
     {
         $this->reader = $reader;
+        $this->numberOfHMetrics = $hhea->numberOfHMetrics;
+        $this->numGlyphs = $maxp->numGlyphs;
     }
-
-    public function getGIDToWidth(int $numberOfHMetrics, int $numGlyphs)
+    
+    /**
+     * getGIDToWidth
+     *
+     * @param  int|null $numberOfHMetrics 原始的 numberOfHMetrics
+     * @param  int|null $numGlyphs 原始的 numGlyphs
+     * @return array
+     * @since 1.1.0 numberOfHMetrics 與 numGlyphs 不需指定，改由內部自動取得
+     */
+    public function getGIDToWidth(int $numberOfHMetrics = 0, int $numGlyphs = 0)
     {
         $reader = $this->reader;
+        $numberOfHMetrics = $this->numberOfHMetrics;
+        $numGlyphs = $this->numGlyphs;
         $result = $reader->readUintArray(32, $numberOfHMetrics);
         $n = count($result);
         for ($i = 0; $i < $n; ++$i) {
@@ -33,13 +47,16 @@ class T_hmtx implements TableInterface
      * subset
      *
      * @param  array $usedGID 要取子集的 GID
-     * @param  int $numberOfHMetrics 原始的 numberOfHMetrics
-     * @param  int $numGlyphs 原始的 numGlyphs
+     * @param  int|null $numberOfHMetrics 原始的 numberOfHMetrics
+     * @param  int|null $numGlyphs 原始的 numGlyphs
      * @return string
+     * @since 1.1.0 numberOfHMetrics 與 numGlyphs 不需指定，改由內部自動取得
      */
-    public function subset(array $usedGID, int $numberOfHMetrics, int $numGlyphs)
+    public function subset(array $usedGID, int $numberOfHMetrics = 0, int $numGlyphs = 0)
     {
         $reader = $this->reader;
+        $numberOfHMetrics = $this->numberOfHMetrics;
+        $numGlyphs = $this->numGlyphs;
         // GID = 0
         $reader->seek(0);
         $result = [$reader->readString(4)];

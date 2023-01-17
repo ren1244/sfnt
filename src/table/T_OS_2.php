@@ -4,7 +4,7 @@ namespace ren1244\sfnt\table;
 
 use ren1244\sfnt\TypeReader;
 
-class T_OS_2 implements TableInterface
+class T_OS_2
 {
     public $sTypoAscender;
     public $sTypoDescender;

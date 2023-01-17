@@ -8,6 +8,7 @@ namespace ren1244\sfnt\cache;
 class CodeToGid
 {
     private $data;
+    private $count;
 
     /**
      * __construct
