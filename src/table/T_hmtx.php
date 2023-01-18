@@ -11,13 +11,16 @@ class T_hmtx
     private $numberOfHMetrics;
     private $numGlyphs;
 
+    /** @var string width(2 byte) + lsb(2 byte) 組成陣列 */
+    private $cache = null;
+
     public function __construct(TypeReader $reader, T_hhea $hhea, T_maxp $maxp)
     {
         $this->reader = $reader;
         $this->numberOfHMetrics = $hhea->numberOfHMetrics;
         $this->numGlyphs = $maxp->numGlyphs;
     }
-    
+
     /**
      * getGIDToWidth
      *
@@ -31,6 +34,7 @@ class T_hmtx
         $reader = $this->reader;
         $numberOfHMetrics = $this->numberOfHMetrics;
         $numGlyphs = $this->numGlyphs;
+        $reader->seek(0);
         $result = $reader->readUintArray(32, $numberOfHMetrics);
         $n = count($result);
         for ($i = 0; $i < $n; ++$i) {
@@ -41,6 +45,69 @@ class T_hmtx
             $result[] = $w;
         }
         return $result;
+    }
+
+    /**
+     * 產生可用於 cache 的字串
+     *
+     * @return string
+     */
+    public function createCache()
+    {
+        $reader = $this->reader;
+        $numberOfHMetrics = $this->numberOfHMetrics;
+        $numGlyphs = $this->numGlyphs;
+        $reader->seek(0);
+        $result = [$reader->readString($numberOfHMetrics * 4)];
+        $pos = ($numberOfHMetrics - 1) * 4;
+        $lastWidth = substr($result[0], $pos, 2);
+        for ($i = $numberOfHMetrics; $i < $numGlyphs; ++$i) {
+            $result[] = $lastWidth . $reader->readString(2);
+        }
+        return implode('', $result);
+    }
+
+    /**
+     * 讀取 cache 字串
+     *
+     * @param  string $cache
+     * @return void
+     */
+    public function loadCache(string $cache)
+    {
+        $this->cache = $cache;
+        if ((strlen($cache) >> 2) !== $this->numGlyphs) {
+            throw new Exception('bad cache length');
+        }
+    }
+    
+    /**
+     * 從 GID 取得 width
+     *
+     * @param  int $GID
+     * @return int width
+     */
+    public function getWidth(int $GID)
+    {
+        if (($x = $this->getWidthAndLsb($GID)) === null) {
+            return null;
+        }
+        return $x >> 16;
+    }
+   
+    /**
+     * 從 GID 取得 left side bearing
+     *
+     * @param  int $GID
+     * @return int left side bearing
+     */
+    public function getLsb(int $GID)
+    {
+        if (($x = $this->getWidthAndLsb($GID)) === null) {
+            return null;
+        }
+        $x = $x & 0xffff;
+        return $x > 0x7fff ? $x - 0x10000 : $x;
     }
 
     /**
@@ -77,5 +144,27 @@ class T_hmtx
             }
         }
         return implode('', $result);
+    }
+    
+    /**
+     * 取得 width 與 lsb 的原始資料
+     * （前 2 byte 是 width, 後 2 byte 是 lsb）
+     *
+     * @param  int $GID
+     * @return int 32 bit unsigned
+     */
+    private function getWidthAndLsb(int $GID)
+    {
+        if ($this->cache === null) {
+            $this->loadCache($this->createCache());
+        }
+        if ($GID < 0 || $this->numGlyphs <= $GID) {
+            return null;
+        }
+        $pos = $GID << 2;
+        return ord($this->cache[$pos]) << 24 |
+            ord($this->cache[$pos + 1]) << 16 |
+            ord($this->cache[$pos + 2]) << 8 |
+            ord($this->cache[$pos + 3]);
     }
 }
