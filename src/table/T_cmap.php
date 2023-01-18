@@ -57,13 +57,17 @@ class T_cmap
     public function readEncodingRecords()
     {
         $reader = $this->reader;
+        $reader->seek(4);
         $n = $this->numTables;
         $result = [];
         for ($i = 0; $i < $n; ++$i) {
-            $result[] = [
-                'platformID' => $reader->readUint(16),
-                'encodingID' => $reader->readUint(16),
-                'subtableOffset' => $reader->readOffset(32),
+            $platformID = $reader->readUint(16);
+            $encodingID = $reader->readUint(16);
+            $subtableOffset = $reader->readOffset(32);
+            $result["$platformID/$encodingID"] = [
+                'platformID' => $platformID,
+                'encodingID' => $encodingID,
+                'subtableOffset' => $subtableOffset,
             ];
         }
         return $result;
@@ -71,21 +75,31 @@ class T_cmap
 
     public function getCodeToGid(int $platformID, int $encodingID, array &$result = null)
     {
-        foreach ($this->encodingRecords as $rec) {
-            if ($rec['platformID'] === $platformID && $rec['encodingID'] === $encodingID) {
-                if ($result === null) {
-                    $result = [];
-                }
-                $reader = $this->reader;
-                $reader->seek($rec['subtableOffset']);
-                $format = $reader->readUint(16);
-                $classname = __NAMESPACE__ . '\\cmap\\Fmt' . $format;
-                if (!class_exists($classname)) {
-                    throw new Exception("Class $classname not exists.");
-                }
-                return $classname::getCodeToGid($reader->createSubReader(
-                    $rec['subtableOffset']
-                ), $result);
+        $key = "$platformID/$encodingID";
+        if (isset($this->encodingRecords[$key])) {
+            $rec = $this->encodingRecords[$key];
+            if ($result === null) {
+                $result = [];
+            }
+            $reader = $this->reader;
+            $reader->seek($rec['subtableOffset']);
+            $format = $reader->readUint(16);
+            $classname = __NAMESPACE__ . '\\cmap\\Fmt' . $format;
+            if (!class_exists($classname)) {
+                throw new Exception("Class $classname not exists.");
+            }
+            return $classname::getCodeToGid($reader->createSubReader(
+                $rec['subtableOffset']
+            ), $result);
+        }
+        return null;
+    }
+
+    public function getUnicodeToGid()
+    {
+        foreach ([[3, 10], [0, 4], [3, 1], [0, 3]] as $rec) {
+            if (($codeToGid = $this->getCodeToGid($rec[0], $rec[1])) !== null) {
+                return $codeToGid;
             }
         }
         return null;
