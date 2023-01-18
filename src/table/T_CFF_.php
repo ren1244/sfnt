@@ -171,7 +171,7 @@ class T_CFF_
     /**
      * 產生 charstring 相依性快取
      *
-     * @return array
+     * @return string
      */
     public function getCharstringDependancyCache()
     {
@@ -212,7 +212,7 @@ class T_CFF_
     {
         /**
          * 一樣維持 gSubrINDEX 的原數量
-         * 只是沒使用到的部分內容為空字串
+         * 只是沒使用到的部分內容直接回傳
          */
         $result = new INDEX('string');
         $n = count($this->gSubrINDEX);
