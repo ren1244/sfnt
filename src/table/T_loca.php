@@ -53,8 +53,8 @@ class T_loca
         } elseif ($this->version === 0) {
             // short offsets
             $reader->seek($GID << 1);
-            $start = $reader->readUint(16);
-            $end = $reader->readUint(16);
+            $start = $reader->readUint(16) * 2;
+            $end = $reader->readUint(16) * 2;
         } else {
             throw new Exception('Unknow version of loca');
         }
